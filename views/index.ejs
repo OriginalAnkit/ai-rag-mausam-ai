@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="chat-container">
+    <header class="chat-header">
+      <h1>Mausam AI</h1>
+    </header>
+    
+    <main class="chat-history" id="chat-history">
+      <!-- Messages will be injected here -->
+    </main>
+
+    <footer class="chat-input-area">
+      <form id="chat-form" autocomplete="off">
+        <input type="text" id="message-input" placeholder="Message Mausam AI..." required autofocus>
+        <button type="submit" id="send-button">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2.01 21L23 12L2.01 3L2 10L17 12L2 14L2.01 21Z" fill="currentColor"/>
+          </svg>
+        </button>
+      </form>
+    </footer>
+  </div>
+
+  <script>
+    const chatHistory = document.getElementById('chat-history');
+    const chatForm = document.getElementById('chat-form');
+    const messageInput = document.getElementById('message-input');
+
+    // Keep track of the number of messages to prevent unnecessary re-rendering
+    let currentMessageCount = 0;
+
+    // Fetch and render messages
+    async function fetchMessages() {
+      try {
+        const response = await fetch('/messages');
+        const messages = await response.json();
+
+        // Only update DOM if there are new messages
+        if (messages.length !== currentMessageCount) {
+          renderMessages(messages);
+          currentMessageCount = messages.length;
+          scrollToBottom();
+        }
+      } catch (error) {
+        console.error('Failed to fetch messages:', error);
+      }
+    }
+
+    // Render messages to the DOM
+    function renderMessages(messages) {
+      chatHistory.innerHTML = '';
+      
+      if (messages.length === 0) {
+        chatHistory.innerHTML = `
+          <div class="empty-state">
+            <h2>How can I help you today?</h2>
+          </div>
+        `;
+        return;
+      }
+
+      messages.forEach(msg => {
+        const messageDiv = document.createElement('div');
+        const isUser = msg.sender.toUpperCase() === 'USER';
+        messageDiv.classList.add('message-row', isUser ? 'user-row' : 'bot-row');
+        
+        const bubble = document.createElement('div');
+        let bubbleClass = 'bot-bubble';
+        if (isUser) {
+          bubbleClass = 'user-bubble';
+        } else if (msg.sender.toUpperCase() === 'BOT') {
+          bubbleClass = 'intermediate-bubble';
+        }
+        bubble.classList.add('message-bubble', bubbleClass);
+        
+        // Use textContent to prevent XSS
+        bubble.textContent = msg.message;
+        
+        messageDiv.appendChild(bubble);
+        chatHistory.appendChild(messageDiv);
+      });
+    }
+
+    // Scroll to the bottom of the chat history
+    function scrollToBottom() {
+      chatHistory.scrollTop = chatHistory.scrollHeight;
+    }
+
+    // Handle form submission
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const message = messageInput.value.trim();
+      if (!message) return;
+      
+      // Temporarily optimistically render user message
+      const tempMsgDiv = document.createElement('div');
+      tempMsgDiv.classList.add('message-row', 'user-row');
+      tempMsgDiv.innerHTML = `<div class="message-bubble user-bubble">${message}</div>`;
+      
+      // If we're at empty state, clear it out first
+      if (currentMessageCount === 0) {
+        chatHistory.innerHTML = '';
+      }
+      
+      chatHistory.appendChild(tempMsgDiv);
+      scrollToBottom();
+      
+      // Clear input
+      messageInput.value = '';
+
+      try {
+        await fetch('/message', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ message })
+        });
+        
+        // Immediately fetch messages to show the bot reply (and confirmed user msg)
+        fetchMessages();
+      } catch (error) {
+        console.error('Failed to send message:', error);
+        // We could handle showing an error state here
+      }
+    });
+
+    // Initial fetch
+    fetchMessages();
+
+    // Poll every 10 seconds as requested
+    setInterval(fetchMessages, 1000);
+
+  </script>
+</body>
+</html>
