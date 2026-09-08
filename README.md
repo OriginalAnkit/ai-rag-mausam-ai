@@ -25,7 +25,7 @@ Mausam AI is a sleek, intelligent chatbot built with Node.js and Express that sp
 
 ## Environment Setup
 
-For the AI to function properly, you need to configure your API keys. 
+For the AI to function properly, you need to configure your API keys (from open router). 
 
 1. Create a file named `.env` in the root of the project directory.
 2. Add your OpenRouter API keys to the `.env` file as follows:
